@@ -56,19 +56,18 @@
 			vdd-supply = <&pm8226_l19>;
 			vcc_i2c-supply = <&pm8226_lvs1>;
 			focaltech,name = "ft5x06";
-			focaltech,family-id = <0x55>;
+			focaltech,family-id = <0x14>;
 			focaltech,reset-gpio = <&msmgpio 16 0x00>;
 			focaltech,irq-gpio = <&msmgpio 17 0x00>;
-			focaltech,display-coords = <0 0 1080 1920>;
-			focaltech,panel-coords = <0 0 1080 2000>;
+			focaltech,display-coords = <0 0 720 1280>;
 			focaltech,button-map= <139 102 158>;
 			focaltech,no-force-update;
 			focaltech,i2c-pull-up;
 			focaltech,group-id = <1>;
 			focaltech,hard-reset-delay-ms = <20>;
 			focaltech,soft-reset-delay-ms = <150>;
-			focaltech,num-max-touches = <5>;
-			focaltech,fw-name = "ft_8226_qrd_1080p_fw.bin";
+			focaltech,num-max-touches = <10>;
+			focaltech,fw-name = "ft5336_firmware_wintek.fw";
 			focaltech,fw-delay-aa-ms = <50>;
 			focaltech,fw-delay-55-ms = <30>;
 			focaltech,fw-upgrade-id1 = <0x79>;
@@ -290,15 +289,25 @@
 			status = "okay";
 			qcom,led_mpp_2 {
 				label = "mpp";
-				linux,name = "button-backlight";
-				linux,default-trigger = "none";
+				linux,name = "red";
+				linux,default-trigger = "battery-charging";
 				qcom,default-state = "off";
 				qcom,max-current = <40>;
 				qcom,current-setting = <5>;
 				qcom,id = <6>;
-				qcom,mode = "manual";
+				qcom,mode = "pwm";
+				qcom,pwm-us = <1000>;
 				qcom,source-sel = <1>;
 				qcom,mode-ctrl = <0x60>;
+				qcom,pwm-channel = <3>;
+				qcom,start-idx = <1>;
+				qcom,ramp-step-ms = <120>;
+				qcom,duty-pcts = [00 00 00 00 00
+						  00 00 00 00 00
+						  50 00 00 00 00
+						  00 00 00 00 00
+						  00];
+				qcom,use-blink;
 			};
 		};
 
@@ -332,16 +341,16 @@
 			status = "okay";
 			qcom,led_mpp_6 {
 				label = "mpp";
-				linux,name = "red";
-				linux,default-trigger = "battery-charging";
+				linux,name = "blue";
+				linux,default-trigger = "none";
 				qcom,default-state = "off";
 				qcom,max-current = <40>;
 				qcom,current-setting = <5>;
 				qcom,id = <6>;
 				qcom,mode = "pwm";
 				qcom,pwm-us = <1000>;
-				qcom,mode-ctrl = <0x60>;
 				qcom,source-sel = <10>;
+				qcom,mode-ctrl = <0x60>;
 				qcom,pwm-channel = <5>;
 				qcom,start-idx = <1>;
 				qcom,ramp-step-ms = <120>;
@@ -394,7 +403,11 @@
 		qcom,rpull-up-kohm = <100>;
 		qcom,vref-batt-therm = <1800000>;
 
-		/include/ "batterydata-qrd-4v35-2000mah.dtsi"
+		/include/ "batterydata-h2a-4v35-LG.dtsi"
+		/include/ "batterydata-h2a-4v35-SAMSUNG.dtsi"
+		/include/ "batterydata-h2a-4v35-SONY.dtsi"
+		/include/ "batterydata-h2a-4v35-GUANGYU.dtsi"
+		/include/ "batterydata-h2a-4v35-SAMSUNG_costdown.dtsi"
 	};
 };
 
