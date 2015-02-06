@@ -4,6 +4,7 @@
  *
  * Copyright (c) 2010  Focal tech Ltd.
  * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015, Balázs Triszka <balika011@protonmail.ch>
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -229,8 +230,7 @@ static int ft5x06_i2c_read(struct i2c_client *client, char *writebuf,
 		};
 		ret = i2c_transfer(client->adapter, msgs, 2);
 		if (ret < 0)
-			dev_err(&client->dev, "%s: i2c read error.\n",
-				__func__);
+			dev_err(&client->dev, "%s: i2c read error. ret = %d\n", __func__, ret);
 	} else {
 		struct i2c_msg msgs[] = {
 			{
@@ -242,7 +242,7 @@ static int ft5x06_i2c_read(struct i2c_client *client, char *writebuf,
 		};
 		ret = i2c_transfer(client->adapter, msgs, 1);
 		if (ret < 0)
-			dev_err(&client->dev, "%s:i2c read error.\n", __func__);
+			dev_err(&client->dev, "%s:i2c read error. ret = %d\n", __func__, ret);
 	}
 	return ret;
 }
@@ -324,8 +324,7 @@ static irqreturn_t ft5x06_ts_interrupt(int irq, void *dev_id)
 	ip_dev = data->input_dev;
 	buf = data->tch_data;
 
-	rc = ft5x06_i2c_read(data->client, &reg, 1,
-			buf, data->tch_data_len);
+	rc = ft5x06_i2c_read(data->client, &reg, 1, buf, data->tch_data_len);
 	if (rc < 0) {
 		dev_err(&data->client->dev, "%s: read data fail\n", __func__);
 		return IRQ_HANDLED;
@@ -338,10 +337,8 @@ static irqreturn_t ft5x06_ts_interrupt(int irq, void *dev_id)
 
 		update_input = true;
 
-		x = (buf[FT_TOUCH_X_H_POS + FT_ONE_TCH_LEN * i] & 0x0F) << 8 |
-			(buf[FT_TOUCH_X_L_POS + FT_ONE_TCH_LEN * i]);
-		y = (buf[FT_TOUCH_Y_H_POS + FT_ONE_TCH_LEN * i] & 0x0F) << 8 |
-			(buf[FT_TOUCH_Y_L_POS + FT_ONE_TCH_LEN * i]);
+		x = (buf[FT_TOUCH_X_H_POS + FT_ONE_TCH_LEN * i] & 0x0F) << 8 | (buf[FT_TOUCH_X_L_POS + FT_ONE_TCH_LEN * i]);
+		y = (buf[FT_TOUCH_Y_H_POS + FT_ONE_TCH_LEN * i] & 0x0F) << 8 | (buf[FT_TOUCH_Y_L_POS + FT_ONE_TCH_LEN * i]);
 
 		status = buf[FT_TOUCH_EVENT_POS + FT_ONE_TCH_LEN * i] >> 6;
 
@@ -378,15 +375,13 @@ static int ft5x06_power_on(struct ft5x06_ts_data *data, bool on)
 
 	rc = regulator_enable(data->vdd);
 	if (rc) {
-		dev_err(&data->client->dev,
-			"Regulator vdd enable failed rc=%d\n", rc);
+		dev_err(&data->client->dev, "Regulator vdd enable failed rc=%d\n", rc);
 		return rc;
 	}
 
 	rc = regulator_enable(data->vcc_i2c);
 	if (rc) {
-		dev_err(&data->client->dev,
-			"Regulator vcc_i2c enable failed rc=%d\n", rc);
+		dev_err(&data->client->dev, "Regulator vcc_i2c enable failed rc=%d\n", rc);
 		regulator_disable(data->vdd);
 	}
 
@@ -395,15 +390,13 @@ static int ft5x06_power_on(struct ft5x06_ts_data *data, bool on)
 power_off:
 	rc = regulator_disable(data->vdd);
 	if (rc) {
-		dev_err(&data->client->dev,
-			"Regulator vdd disable failed rc=%d\n", rc);
+		dev_err(&data->client->dev, "Regulator vdd disable failed rc=%d\n", rc);
 		return rc;
 	}
 
 	rc = regulator_disable(data->vcc_i2c);
 	if (rc) {
-		dev_err(&data->client->dev,
-			"Regulator vcc_i2c disable failed rc=%d\n", rc);
+		dev_err(&data->client->dev, "Regulator vcc_i2c disable failed rc=%d\n", rc);
 		regulator_enable(data->vdd);
 	}
 
@@ -420,8 +413,7 @@ static int ft5x06_power_init(struct ft5x06_ts_data *data, bool on)
 	data->vdd = regulator_get(&data->client->dev, "vdd");
 	if (IS_ERR(data->vdd)) {
 		rc = PTR_ERR(data->vdd);
-		dev_err(&data->client->dev,
-			"Regulator get failed vdd rc=%d\n", rc);
+		dev_err(&data->client->dev, "Regulator get failed vdd rc=%d\n", rc);
 		return rc;
 	}
 
@@ -429,8 +421,7 @@ static int ft5x06_power_init(struct ft5x06_ts_data *data, bool on)
 		rc = regulator_set_voltage(data->vdd, FT_VTG_MIN_UV,
 					   FT_VTG_MAX_UV);
 		if (rc) {
-			dev_err(&data->client->dev,
-				"Regulator set_vtg failed vdd rc=%d\n", rc);
+			dev_err(&data->client->dev, "Regulator set_vtg failed vdd rc=%d\n", rc);
 			goto reg_vdd_put;
 		}
 	}
@@ -438,8 +429,7 @@ static int ft5x06_power_init(struct ft5x06_ts_data *data, bool on)
 	data->vcc_i2c = regulator_get(&data->client->dev, "vcc_i2c");
 	if (IS_ERR(data->vcc_i2c)) {
 		rc = PTR_ERR(data->vcc_i2c);
-		dev_err(&data->client->dev,
-			"Regulator get failed vcc_i2c rc=%d\n", rc);
+		dev_err(&data->client->dev, "Regulator get failed vcc_i2c rc=%d\n", rc);
 		goto reg_vdd_set_vtg;
 	}
 
@@ -447,8 +437,7 @@ static int ft5x06_power_init(struct ft5x06_ts_data *data, bool on)
 		rc = regulator_set_voltage(data->vcc_i2c, FT_I2C_VTG_MIN_UV,
 					   FT_I2C_VTG_MAX_UV);
 		if (rc) {
-			dev_err(&data->client->dev,
-			"Regulator set_vtg failed vcc_i2c rc=%d\n", rc);
+			dev_err(&data->client->dev, "Regulator set_vtg failed vcc_i2c rc=%d\n", rc);
 			goto reg_vcc_i2c_put;
 		}
 	}
@@ -578,16 +567,14 @@ static int ft5x06_ts_resume(struct device *dev)
 }
 
 #if defined(CONFIG_FB)
-static int fb_notifier_callback(struct notifier_block *self,
-				 unsigned long event, void *data)
+static int fb_notifier_callback(struct notifier_block *self,  unsigned long event, void *data)
 {
 	struct fb_event *evdata = data;
 	int *blank;
 	struct ft5x06_ts_data *ft5x06_data =
 		container_of(self, struct ft5x06_ts_data, fb_notif);
 
-	if (evdata && evdata->data && event == FB_EVENT_BLANK &&
-			ft5x06_data && ft5x06_data->client) {
+	if (evdata && evdata->data && event == FB_EVENT_BLANK && ft5x06_data && ft5x06_data->client) {
 		blank = evdata->data;
 		if (*blank == FB_BLANK_UNBLANK)
 			ft5x06_ts_resume(&ft5x06_data->client->dev);
@@ -600,18 +587,14 @@ static int fb_notifier_callback(struct notifier_block *self,
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 static void ft5x06_ts_early_suspend(struct early_suspend *handler)
 {
-	struct ft5x06_ts_data *data = container_of(handler,
-						   struct ft5x06_ts_data,
-						   early_suspend);
+	struct ft5x06_ts_data *data = container_of(handler, struct ft5x06_ts_data, early_suspend);
 
 	ft5x06_ts_suspend(&data->client->dev);
 }
 
 static void ft5x06_ts_late_resume(struct early_suspend *handler)
 {
-	struct ft5x06_ts_data *data = container_of(handler,
-						   struct ft5x06_ts_data,
-						   early_suspend);
+	struct ft5x06_ts_data *data = container_of(handler, struct ft5x06_ts_data, early_suspend);
 
 	ft5x06_ts_resume(&data->client->dev);
 }
@@ -661,8 +644,7 @@ static int ft5x06_auto_cal(struct i2c_client *client)
 	return 0;
 }
 
-static int ft5x06_fw_upgrade_start(struct i2c_client *client,
-			const u8 *data, u32 data_len)
+static int ft5x06_fw_upgrade_start(struct i2c_client *client, const u8 *data, u32 data_len)
 {
 	struct ft5x06_ts_data *ts_data = i2c_get_clientdata(client);
 	struct fw_upgrade_info info = ts_data->pdata->info;
@@ -714,11 +696,8 @@ static int ft5x06_fw_upgrade_start(struct i2c_client *client,
 
 		ft5x06_i2c_read(client, w_buf, 4, r_buf, 2);
 
-		if (r_buf[0] != info.upgrade_id_1
-			|| r_buf[1] != info.upgrade_id_2) {
-			dev_err(&client->dev, "Upgrade ID mismatch(%d), IC=0x%x 0x%x, info=0x%x 0x%x\n",
-				i, r_buf[0], r_buf[1],
-				info.upgrade_id_1, info.upgrade_id_2);
+		if (r_buf[0] != info.upgrade_id_1 || r_buf[1] != info.upgrade_id_2) {
+			dev_err(&client->dev, "Upgrade ID mismatch(%d), IC=0x%x 0x%x, info=0x%x 0x%x\n", i, r_buf[0], r_buf[1], info.upgrade_id_1, info.upgrade_id_2);
 		} else
 			break;
 	}
@@ -735,11 +714,10 @@ static int ft5x06_fw_upgrade_start(struct i2c_client *client,
 		is_5336_new_bootloader = FT_BLOADER_VERSION_LZ4;
 	else if (r_buf[0] == 7)
 		is_5336_new_bootloader = FT_BLOADER_VERSION_Z7;
-	else if (r_buf[0] >= 0x0f &&
-		((ts_data->family_id == FT_FT5336_FAMILY_ID_0x11) ||
-		(ts_data->family_id == FT_FT5336_FAMILY_ID_0x12) ||
-		(ts_data->family_id == FT_FT5336_FAMILY_ID_0x13) ||
-		(ts_data->family_id == FT_FT5336_FAMILY_ID_0x14)))
+	else if (r_buf[0] >= 0x0f && (ts_data->family_id == FT_FT5336_FAMILY_ID_0x11 ||
+		ts_data->family_id == FT_FT5336_FAMILY_ID_0x12 ||
+		ts_data->family_id == FT_FT5336_FAMILY_ID_0x13 ||
+		ts_data->family_id == FT_FT5336_FAMILY_ID_0x14))
 		is_5336_new_bootloader = FT_BLOADER_VERSION_GZF;
 	else
 		is_5336_new_bootloader = FT_BLOADER_VERSION_LZ4;
@@ -760,8 +738,7 @@ static int ft5x06_fw_upgrade_start(struct i2c_client *client,
 	msleep(FT_EARSE_DLY_MS);
 
 	/* program firmware */
-	if (is_5336_new_bootloader == FT_BLOADER_VERSION_LZ4
-		|| is_5336_new_bootloader == FT_BLOADER_VERSION_Z7)
+	if (is_5336_new_bootloader == FT_BLOADER_VERSION_LZ4 || is_5336_new_bootloader == FT_BLOADER_VERSION_Z7)
 		data_len = data_len - FT_DATA_LEN_OFF_OLD_FW;
 	else
 		data_len = data_len - FT_DATA_LEN_OFF_NEW_FW;
@@ -808,8 +785,7 @@ static int ft5x06_fw_upgrade_start(struct i2c_client *client,
 	}
 
 	/* send the finishing packet */
-	if (is_5336_new_bootloader == FT_BLOADER_VERSION_LZ4 ||
-		is_5336_new_bootloader == FT_BLOADER_VERSION_Z7) {
+	if (is_5336_new_bootloader == FT_BLOADER_VERSION_LZ4 || is_5336_new_bootloader == FT_BLOADER_VERSION_Z7) {
 		for (i = 0; i < FT_FINISHING_PKT_LEN_OLD_FW; i++) {
 			if (is_5336_new_bootloader  == FT_BLOADER_VERSION_Z7)
 				temp = FT_MAGIC_BLOADER_Z7 + i;
@@ -938,16 +914,13 @@ rel_fw:
 	return rc;
 }
 
-static ssize_t ft5x06_update_fw_show(struct device *dev,
-				struct device_attribute *attr, char *buf)
+static ssize_t ft5x06_update_fw_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
 	return snprintf(buf, 2, "%d\n", data->loading_fw);
 }
 
-static ssize_t ft5x06_update_fw_store(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf, size_t size)
+static ssize_t ft5x06_update_fw_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
 {
 	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
 	unsigned long val;
@@ -976,12 +949,9 @@ static ssize_t ft5x06_update_fw_store(struct device *dev,
 	return size;
 }
 
-static DEVICE_ATTR(update_fw, 0664, ft5x06_update_fw_show,
-				ft5x06_update_fw_store);
+static DEVICE_ATTR(update_fw, 0664, ft5x06_update_fw_show, ft5x06_update_fw_store);
 
-static ssize_t ft5x06_force_update_fw_store(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf, size_t size)
+static ssize_t ft5x06_force_update_fw_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
 {
 	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
 	unsigned long val;
@@ -1005,8 +975,7 @@ static ssize_t ft5x06_force_update_fw_store(struct device *dev,
 	return size;
 }
 
-static DEVICE_ATTR(force_update_fw, 0664, ft5x06_update_fw_show,
-				ft5x06_force_update_fw_store);
+static DEVICE_ATTR(force_update_fw, 0664, ft5x06_update_fw_show, ft5x06_force_update_fw_store);
 
 static ssize_t ft5x06_fw_name_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
@@ -1015,9 +984,7 @@ static ssize_t ft5x06_fw_name_show(struct device *dev,
 	return snprintf(buf, FT_FW_NAME_MAX_LEN - 1, "%s\n", data->fw_name);
 }
 
-static ssize_t ft5x06_fw_name_store(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf, size_t size)
+static ssize_t ft5x06_fw_name_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
 {
 	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
 
@@ -1081,8 +1048,7 @@ static int ft5x06_debug_data_get(void *_data, u64 *val)
 	return 0;
 }
 
-DEFINE_SIMPLE_ATTRIBUTE(debug_data_fops, ft5x06_debug_data_get,
-			ft5x06_debug_data_set, "0x%02llX\n");
+DEFINE_SIMPLE_ATTRIBUTE(debug_data_fops, ft5x06_debug_data_get, ft5x06_debug_data_set, "0x%02llX\n");
 
 static int ft5x06_debug_addr_set(void *_data, u64 val)
 {
@@ -1111,8 +1077,7 @@ static int ft5x06_debug_addr_get(void *_data, u64 *val)
 	return 0;
 }
 
-DEFINE_SIMPLE_ATTRIBUTE(debug_addr_fops, ft5x06_debug_addr_get,
-			ft5x06_debug_addr_set, "0x%02llX\n");
+DEFINE_SIMPLE_ATTRIBUTE(debug_addr_fops, ft5x06_debug_addr_get, ft5x06_debug_addr_set, "0x%02llX\n");
 
 static int ft5x06_debug_suspend_set(void *_data, u64 val)
 {
@@ -1141,8 +1106,7 @@ static int ft5x06_debug_suspend_get(void *_data, u64 *val)
 	return 0;
 }
 
-DEFINE_SIMPLE_ATTRIBUTE(debug_suspend_fops, ft5x06_debug_suspend_get,
-			ft5x06_debug_suspend_set, "%lld\n");
+DEFINE_SIMPLE_ATTRIBUTE(debug_suspend_fops, ft5x06_debug_suspend_get, ft5x06_debug_suspend_set, "%lld\n");
 
 static int ft5x06_debug_dump_info(struct seq_file *m, void *v)
 {
@@ -1166,8 +1130,7 @@ static const struct file_operations debug_dump_info_fops = {
 };
 
 #ifdef CONFIG_OF
-static int ft5x06_get_dt_coords(struct device *dev, char *name,
-				struct ft5x06_ts_platform_data *pdata)
+static int ft5x06_get_dt_coords(struct device *dev, char *name, struct ft5x06_ts_platform_data *pdata)
 {
 	u32 coords[FT_COORDS_ARR_SIZE];
 	struct property *prop;
@@ -1192,12 +1155,7 @@ static int ft5x06_get_dt_coords(struct device *dev, char *name,
 		return rc;
 	}
 
-	if (!strcmp(name, "focaltech,panel-coords")) {
-		pdata->panel_minx = coords[0];
-		pdata->panel_miny = coords[1];
-		pdata->panel_maxx = coords[2];
-		pdata->panel_maxy = coords[3];
-	} else if (!strcmp(name, "focaltech,display-coords")) {
+	if (!strcmp(name, "focaltech,display-coords")) {
 		pdata->x_min = coords[0];
 		pdata->y_min = coords[1];
 		pdata->x_max = coords[2];
@@ -1210,8 +1168,7 @@ static int ft5x06_get_dt_coords(struct device *dev, char *name,
 	return 0;
 }
 
-static int ft5x06_parse_dt(struct device *dev,
-			struct ft5x06_ts_platform_data *pdata)
+static int ft5x06_parse_dt(struct device *dev, struct ft5x06_ts_platform_data *pdata)
 {
 	int rc;
 	struct device_node *np = dev->of_node;
@@ -1226,27 +1183,19 @@ static int ft5x06_parse_dt(struct device *dev,
 		return rc;
 	}
 
-	rc = ft5x06_get_dt_coords(dev, "focaltech,panel-coords", pdata);
-	if (rc && (rc != -EINVAL))
-		return rc;
-
 	rc = ft5x06_get_dt_coords(dev, "focaltech,display-coords", pdata);
 	if (rc)
 		return rc;
 
-	pdata->i2c_pull_up = of_property_read_bool(np,
-						"focaltech,i2c-pull-up");
+	pdata->i2c_pull_up = of_property_read_bool(np, "focaltech,i2c-pull-up");
 
-	pdata->no_force_update = of_property_read_bool(np,
-						"focaltech,no-force-update");
+	pdata->no_force_update = of_property_read_bool(np, "focaltech,no-force-update");
 	/* reset, irq gpio info */
-	pdata->reset_gpio = of_get_named_gpio_flags(np, "focaltech,reset-gpio",
-				0, &pdata->reset_gpio_flags);
+	pdata->reset_gpio = of_get_named_gpio_flags(np, "focaltech,reset-gpio", 0, &pdata->reset_gpio_flags);
 	if (pdata->reset_gpio < 0)
 		return pdata->reset_gpio;
 
-	pdata->irq_gpio = of_get_named_gpio_flags(np, "focaltech,irq-gpio",
-				0, &pdata->irq_gpio_flags);
+	pdata->irq_gpio = of_get_named_gpio_flags(np, "focaltech,irq-gpio", 0, &pdata->irq_gpio_flags);
 	if (pdata->irq_gpio < 0)
 		return pdata->irq_gpio;
 
@@ -1263,15 +1212,13 @@ static int ft5x06_parse_dt(struct device *dev,
 	else
 		return rc;
 
-	rc = of_property_read_u32(np, "focaltech,hard-reset-delay-ms",
-							&temp_val);
+	rc = of_property_read_u32(np, "focaltech,hard-reset-delay-ms", &temp_val);
 	if (!rc)
 		pdata->hard_rst_dly = temp_val;
 	else
 		return rc;
 
-	rc = of_property_read_u32(np, "focaltech,soft-reset-delay-ms",
-							&temp_val);
+	rc = of_property_read_u32(np, "focaltech,soft-reset-delay-ms", &temp_val);
 	if (!rc)
 		pdata->soft_rst_dly = temp_val;
 	else
@@ -1319,22 +1266,18 @@ static int ft5x06_parse_dt(struct device *dev,
 	} else if (rc != -EINVAL)
 		pdata->info.delay_readid =  temp_val;
 
-	rc = of_property_read_u32(np, "focaltech,fw-delay-era-flsh-ms",
-							&temp_val);
+	rc = of_property_read_u32(np, "focaltech,fw-delay-era-flsh-ms", &temp_val);
 	if (rc && (rc != -EINVAL)) {
 		dev_err(dev, "Unable to read fw delay erase flash\n");
 		return rc;
 	} else if (rc != -EINVAL)
 		pdata->info.delay_erase_flash =  temp_val;
 
-	pdata->info.auto_cal = of_property_read_bool(np,
-					"focaltech,fw-auto-cal");
+	pdata->info.auto_cal = of_property_read_bool(np, "focaltech,fw-auto-cal");
 
-	pdata->fw_vkey_support = of_property_read_bool(np,
-						"focaltech,fw-vkey-support");
+	pdata->fw_vkey_support = of_property_read_bool(np, "focaltech,fw-vkey-support");
 
-	pdata->ignore_id_check = of_property_read_bool(np,
-						"focaltech,ignore-id-check");
+	pdata->ignore_id_check = of_property_read_bool(np, "focaltech,ignore-id-check");
 
 	rc = of_property_read_u32(np, "focaltech,family-id", &temp_val);
 	if (!rc)
@@ -1367,8 +1310,44 @@ static int ft5x06_parse_dt(struct device *dev,
 }
 #endif
 
-static int ft5x06_ts_probe(struct i2c_client *client,
-			   const struct i2c_device_id *id)
+static ssize_t ft5x06_vkeys_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	struct button
+	{
+		int keycode;
+		int x, y;
+		int width, height;
+	} buttons[3];
+	ssize_t size = 0, i;
+
+	buttons[0].keycode = 139;
+	buttons[0].x = 155;
+	buttons[0].y = 1319;
+	buttons[0].width = 10;
+	buttons[0].height = 50;
+
+	buttons[1].keycode = 172;
+	buttons[1].x = 355;
+	buttons[1].y = 1319;
+	buttons[1].width = 10;
+	buttons[1].height = 50;
+
+	buttons[2].keycode = 158;
+	buttons[2].x = 565;
+	buttons[2].y = 1319;
+	buttons[2].width = 10;
+	buttons[2].height = 50;
+
+	for (i = 0; i < 3; ++i)
+		size += snprintf(buf+size, PAGE_SIZE-size, "0x%02x:%d:%d:%d:%d:%d\n", EV_KEY, buttons[i].keycode, buttons[i].x + buttons[i].width / 2, buttons[i].y + buttons[i].height / 2, buttons[i].width, buttons[i].height);
+
+	return size;
+}
+
+struct kobject *vkeys_dir;
+struct kobj_attribute vkeys_attr;
+
+static int ft5x06_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct ft5x06_ts_platform_data *pdata;
 	struct ft5x06_ts_data *data;
@@ -1404,8 +1383,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 		return -ENODEV;
 	}
 
-	data = devm_kzalloc(&client->dev,
-			sizeof(struct ft5x06_ts_data), GFP_KERNEL);
+	data = devm_kzalloc(&client->dev, sizeof(struct ft5x06_ts_data), GFP_KERNEL);
 	if (!data) {
 		dev_err(&client->dev, "Not enough memory\n");
 		return -ENOMEM;
@@ -1422,8 +1400,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	}
 
 	data->tch_data_len = FT_TCH_LEN(pdata->num_max_touches);
-	data->tch_data = devm_kzalloc(&client->dev,
-				data->tch_data_len, GFP_KERNEL);
+	data->tch_data = devm_kzalloc(&client->dev, data->tch_data_len, GFP_KERNEL);
 	if (!data) {
 		dev_err(&client->dev, "Not enough memory\n");
 		return -ENOMEM;
@@ -1452,10 +1429,8 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	__set_bit(INPUT_PROP_DIRECT, input_dev->propbit);
 
 	input_mt_init_slots(input_dev, pdata->num_max_touches);
-	input_set_abs_params(input_dev, ABS_MT_POSITION_X, pdata->x_min,
-			     pdata->x_max, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_POSITION_Y, pdata->y_min,
-			     pdata->y_max, 0, 0);
+	input_set_abs_params(input_dev, ABS_MT_POSITION_X, pdata->x_min, pdata->x_max, 0, 0);
+	input_set_abs_params(input_dev, ABS_MT_POSITION_Y, pdata->y_min, pdata->y_max, 0, 0);
 
 	err = input_register_device(input_dev);
 	if (err) {
@@ -1542,10 +1517,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 
 	data->family_id = pdata->family_id;
 
-	err = request_threaded_irq(client->irq, NULL,
-				ft5x06_ts_interrupt,
-				pdata->irqflags | IRQF_ONESHOT,
-				client->dev.driver->name, data);
+	err = request_threaded_irq(client->irq, NULL, ft5x06_ts_interrupt, pdata->irqflags | IRQF_ONESHOT, client->dev.driver->name, data);
 	if (err) {
 		dev_err(&client->dev, "request irq failed\n");
 		goto free_reset_gpio;
@@ -1576,40 +1548,35 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 		goto free_force_update_fw_sys;
 	}
 
-	temp = debugfs_create_file("addr", S_IRUSR | S_IWUSR, data->dir, data,
-				   &debug_addr_fops);
+	temp = debugfs_create_file("addr", S_IRUSR | S_IWUSR, data->dir, data, &debug_addr_fops);
 	if (temp == NULL || IS_ERR(temp)) {
 		pr_err("debugfs_create_file failed: rc=%ld\n", PTR_ERR(temp));
 		err = PTR_ERR(temp);
 		goto free_debug_dir;
 	}
 
-	temp = debugfs_create_file("data", S_IRUSR | S_IWUSR, data->dir, data,
-				   &debug_data_fops);
+	temp = debugfs_create_file("data", S_IRUSR | S_IWUSR, data->dir, data, &debug_data_fops);
 	if (temp == NULL || IS_ERR(temp)) {
 		pr_err("debugfs_create_file failed: rc=%ld\n", PTR_ERR(temp));
 		err = PTR_ERR(temp);
 		goto free_debug_dir;
 	}
 
-	temp = debugfs_create_file("suspend", S_IRUSR | S_IWUSR, data->dir,
-					data, &debug_suspend_fops);
+	temp = debugfs_create_file("suspend", S_IRUSR | S_IWUSR, data->dir, data, &debug_suspend_fops);
 	if (temp == NULL || IS_ERR(temp)) {
 		pr_err("debugfs_create_file failed: rc=%ld\n", PTR_ERR(temp));
 		err = PTR_ERR(temp);
 		goto free_debug_dir;
 	}
 
-	temp = debugfs_create_file("dump_info", S_IRUSR | S_IWUSR, data->dir,
-					data, &debug_dump_info_fops);
+	temp = debugfs_create_file("dump_info", S_IRUSR | S_IWUSR, data->dir, data, &debug_dump_info_fops);
 	if (temp == NULL || IS_ERR(temp)) {
 		pr_err("debugfs_create_file failed: rc=%ld\n", PTR_ERR(temp));
 		err = PTR_ERR(temp);
 		goto free_debug_dir;
 	}
 
-	data->ts_info = devm_kzalloc(&client->dev,
-				FT_INFO_MAX_LEN, GFP_KERNEL);
+	data->ts_info = devm_kzalloc(&client->dev, FT_INFO_MAX_LEN, GFP_KERNEL);
 	if (!data->ts_info) {
 		dev_err(&client->dev, "Not enough memory\n");
 		goto free_debug_dir;
@@ -1644,8 +1611,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	err = fb_register_client(&data->fb_notif);
 
 	if (err)
-		dev_err(&client->dev, "Unable to register fb_notifier: %d\n",
-			err);
+		dev_err(&client->dev, "Unable to register fb_notifier: %d\n", err);
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 	data->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN +
 						    FT_SUSPEND_LEVEL;
@@ -1653,8 +1619,29 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	data->early_suspend.resume = ft5x06_ts_late_resume;
 	register_early_suspend(&data->early_suspend);
 #endif
+	
+	vkeys_dir = kobject_create_and_add("board_properties", NULL);
+	if (vkeys_dir == NULL) {
+		err = -ENOMEM;
+		dev_err(&client->dev, "fail to create board_properties entry\n");
+		goto free_create_kobject;
+	}
 
+	sysfs_attr_init(&vkeys_attr.attr);
+	vkeys_attr.attr.name = "virtualkeys.ft5x06_ts";
+	vkeys_attr.attr.mode = S_IRUSR | S_IRGRP | S_IROTH;
+	vkeys_attr.show      = ft5x06_vkeys_show;
+
+	err = sysfs_create_file(vkeys_dir, &vkeys_attr.attr);
+	if (err) {
+		dev_err(&client->dev, "fail to create virtualkeys entry\n");
+		goto free_create_vkeys_sysfs;
+	}
 	return 0;
+
+free_create_vkeys_sysfs:
+
+free_create_kobject:
 
 free_debug_dir:
 	debugfs_remove_recursive(data->dir);
@@ -1748,13 +1735,13 @@ static struct i2c_driver ft5x06_ts_driver = {
 	.probe = ft5x06_ts_probe,
 	.remove = __devexit_p(ft5x06_ts_remove),
 	.driver = {
-		   .name = "ft5x06_ts",
-		   .owner = THIS_MODULE,
-		.of_match_table = ft5x06_match_table,
+			.name = "ft5x06_ts",
+			.owner = THIS_MODULE,
+			.of_match_table = ft5x06_match_table,
 #ifdef CONFIG_PM
-		   .pm = &ft5x06_ts_pm_ops,
+			.pm = &ft5x06_ts_pm_ops,
 #endif
-		   },
+		},
 	.id_table = ft5x06_ts_id,
 };
 
