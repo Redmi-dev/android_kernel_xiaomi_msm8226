@@ -570,6 +570,13 @@ config CI_BRIDGE_SPI
 
 	To compile this driver as module, choose M here.
 
+config HAPTIC_ISA1000
+	tristate "ISA1000 haptic support"
+	depends on ANDROID_TIMED_OUTPUT
+	default n
+	help
+	  The ISA1000 is a high performance enhanced haptic driver.
+
 config HAPTIC_ISA1200
 	tristate "ISA1200 haptic support"
 	depends on I2C
@@ -664,6 +671,7 @@ config TI_DRV2667
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called ti_drv2667.
+
 
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"

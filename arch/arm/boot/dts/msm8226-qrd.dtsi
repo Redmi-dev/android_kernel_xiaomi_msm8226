@@ -17,19 +17,19 @@
 		status = "ok";
 	};
 
-        i2c@f9925000 { /* BLSP1 QUP3 */
-                nfc-nci@0e {
-                        compatible = "qcom,nfc-nci";
-                        reg = <0x0e>;
-                        qcom,irq-gpio = <&msmgpio 21 0x00>;
-                        qcom,dis-gpio = <&msmgpio 20 0x00>;
-                        qcom,clk-src = "BBCLK2";
-                        qcom,clk-en-gpio = <&msmgpio 0 0x00>;
-                        interrupt-parent = <&msmgpio>;
-                        interrupts = <21 0>;
-                        qcom,clk-gpio = <&pm8226_gpios 3 0>;
-                };
-        };
+	i2c@f9925000 { /* BLSP1 QUP3 */
+		nfc-nci@0e {
+			compatible = "qcom,nfc-nci";
+			reg = <0x0e>;
+			qcom,irq-gpio = <&msmgpio 21 0x00>;
+			qcom,dis-gpio = <&msmgpio 20 0x00>;
+			qcom,clk-src = "BBCLK2";
+			qcom,clk-en-gpio = <&msmgpio 0 0x00>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <21 0>;
+			qcom,clk-gpio = <&pm8226_gpios 3 0>;
+		};
+	};
 
 	i2c@f9927000 { /* BLSP1 QUP5 */
 		synaptics@20 {
@@ -169,6 +169,15 @@
 		qcom,cdc-mclk-gpios = <&pm8226_gpios 1 0>;
 		qcom,cdc-vdd-spkr-gpios = <&pm8226_gpios 2 0>;
 		qcom,cdc-us-euro-gpios = <&msmgpio 69 0>;
+	};
+
+	vibrator {
+		status = "ok";
+		compatible = "imagis,isa1000";
+		gpio-isa1000-en = <&msmgpio 33 0x00>;
+		gpio-haptic-en = <&msmgpio 50 0x00>;
+		timeout-ms = <15000>;
+		pwm-channel = <1>;
 	};
 };
 

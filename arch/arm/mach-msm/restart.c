@@ -99,10 +99,10 @@ static void set_dload_mode(int on)
 	}
 }
 
-static bool get_dload_mode(void)
+/*static bool get_dload_mode(void)
 {
 	return dload_mode_enabled;
-}
+}*/
 
 static void enable_emergency_dload_mode(void)
 {
@@ -151,10 +151,10 @@ static void enable_emergency_dload_mode(void)
 	printk(KERN_ERR "dload mode is not enabled on target\n");
 }
 
-static bool get_dload_mode(void)
+/*static bool get_dload_mode(void)
 {
 	return false;
-}
+}*/
 #endif
 
 void msm_set_restart_mode(int mode)
@@ -270,10 +270,10 @@ static void msm_restart_prepare(const char *cmd)
 	pm8xxx_reset_pwr_off(1);
 
 	/* Hard reset the PMIC unless memory contents must be maintained. */
-	if (get_dload_mode() || (cmd != NULL && cmd[0] != '\0'))
+	//if (get_dload_mode() || (cmd != NULL && cmd[0] != '\0'))
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
-	else
-		qpnp_pon_system_pwr_off(PON_POWER_OFF_HARD_RESET);
+	//else
+	//	qpnp_pon_system_pwr_off(PON_POWER_OFF_HARD_RESET);
 
 	if (cmd != NULL) {
 		if (!strncmp(cmd, "bootloader", 10)) {
