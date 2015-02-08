@@ -84,11 +84,11 @@
 		qcom,direct-connect-irqs = <8>;
 	};
 
-        w1-gpio {
-                compatible = "qcom,w1-gpio";
-                qcom,gpio-pin = <567>; /* BAT_ID Connects to mpp-8*/
-                qcom,is-open-drain = <0>;
-        };
+	w1-gpio {
+		compatible = "qcom,w1-gpio";
+		qcom,gpio-pin = <567>; /* BAT_ID Connects to mpp-8*/
+		qcom,is-open-drain = <0>;
+	};
 
 	qcom,mpm2-sleep-counter@fc4a3000 {
 		compatible = "qcom,mpm2-sleep-counter";
@@ -273,7 +273,7 @@
 		};
 	};
 
-        usb_otg: usb@f9a55000 {
+	usb_otg: usb@f9a55000 {
 		compatible = "qcom,hsusb-otg";
 		reg = <0xf9a55000 0x400>;
 		interrupts = <0 134 0>, <0 140 0>;

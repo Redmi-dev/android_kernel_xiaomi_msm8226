@@ -47,9 +47,23 @@ static int __init w1_gpio_probe(struct platform_device *pdev)
 	struct w1_bus_master *master;
 	struct w1_gpio_platform_data *pdata = pdev->dev.platform_data;
 	int err;
+	unsigned int is_open_drain;
 
 	if (!pdata)
 		return -ENXIO;
+
+	err = of_property_read_u32(pdev->dev.of_node, "qcom,gpio-pin", &pdata->pin);
+	if (err) {
+		pr_err("%s: missing DT key 'qcom,gpio-pin'\n", __func__);
+		return err;
+	}
+
+	err = of_property_read_u32(pdev->dev.of_node, "qcom,is-open-drain", &is_open_drain);
+	if (err) {
+		pr_err("%s: missing DT key 'qcom,is-open-drain'\n", __func__);
+		return err;
+	}
+	pdata->is_open_drain = !!is_open_drain;
 
 	master = kzalloc(sizeof(struct w1_bus_master), GFP_KERNEL);
 	if (!master)
@@ -81,9 +95,9 @@ static int __init w1_gpio_probe(struct platform_device *pdev)
 
 	return 0;
 
- free_gpio:
+free_gpio:
 	gpio_free(pdata->pin);
- free_master:
+free_master:
 	kfree(master);
 
 	return err;
@@ -131,10 +145,16 @@ static int w1_gpio_resume(struct platform_device *pdev)
 #define w1_gpio_resume	NULL
 #endif
 
+static struct of_device_id w1_gpio_match_table[] = {
+	{ .compatible = "qcom,w1-gpio" },
+	{}
+};
+
 static struct platform_driver w1_gpio_driver = {
 	.driver = {
 		.name	= "w1-gpio",
 		.owner	= THIS_MODULE,
+		.of_match_table = w1_gpio_match_table,
 	},
 	.remove	= __exit_p(w1_gpio_remove),
 	.suspend = w1_gpio_suspend,
