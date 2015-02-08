@@ -23,25 +23,50 @@ struct isa1000_vib {
 	int gpio_isa1000_en;
 	int gpio_haptic_en;
 	int timeout;
+	int pwm_channel;
+	unsigned int pwm_frequency;
+	int pwm_duty_percent;
+	struct pwm_device *pwm;
+	struct work_struct work;
 	struct mutex lock;
 	struct hrtimer vib_timer;
 	struct timed_output_dev timed_dev;
+	int state;
 };
 
-static struct isa1000_vib isa1000_vibrator_data = {
+static struct isa1000_vib vib_dev = {
+	.pwm_frequency = 25000,
+	.pwm_duty_percent = 100,
 };
 
-static int isa1000_vib_set(struct isa1000_vib *vib, int on)
+static int isa1000_set_state(struct isa1000_vib *vib, int on)
 {
-	if (on)
-		gpio_set_value_cansleep(vib->gpio_haptic_en, 1);
-	else
-		gpio_set_value_cansleep(vib->gpio_haptic_en, 0);
+	if (on) {
+		int rc;
+		unsigned int pwm_period_ns = NSEC_PER_SEC / vib->pwm_frequency;
+
+		rc = pwm_config(vib->pwm, (pwm_period_ns * vib->pwm_duty_percent) / 100, pwm_period_ns);
+		if (rc < 0) {
+			pr_err("Unable to config pwm\n");
+			return rc;
+		}
+
+		rc = pwm_enable(vib->pwm);
+		if (rc < 0) {
+			pr_err("Unable to enable pwm\n");
+			return rc;
+		}
+
+		gpio_set_value_cansleep(vib->gpio_isa1000_en, 1);
+	} else {
+		gpio_set_value_cansleep(vib->gpio_isa1000_en, 0);
+		pwm_disable(vib->pwm);
+	}
 
 	return 0;
 }
 
-static void isa1000_vib_enable(struct timed_output_dev *dev, int value)
+static void isa1000_enable(struct timed_output_dev *dev, int value)
 {
 	struct isa1000_vib *vib = container_of(dev, struct isa1000_vib, timed_dev);
 
@@ -49,17 +74,24 @@ static void isa1000_vib_enable(struct timed_output_dev *dev, int value)
 	hrtimer_cancel(&vib->vib_timer);
 
 	if (value == 0)
-		isa1000_vib_set(vib, 0);
+		vib->state = 0;
 	else {
-		isa1000_vib_set(vib, 1);
-		value = (value > vib->timeout ? vib->timeout : value);
+		vib->state = 1;
+		value = value > vib->timeout ? vib->timeout : value;
 		hrtimer_start(&vib->vib_timer, ktime_set(value / 1000, (value % 1000) * 1000000), HRTIMER_MODE_REL);
 	}
 
 	mutex_unlock(&vib->lock);
+	schedule_work(&vib->work);
 }
 
-static int isa1000_vib_get_time(struct timed_output_dev *dev)
+static void isa1000_update(struct work_struct *work)
+{
+	struct isa1000_vib *vib = container_of(work, struct isa1000_vib, work);
+	isa1000_set_state(vib, vib->state);
+}
+
+static int isa1000_get_time(struct timed_output_dev *dev)
 {
 	struct isa1000_vib *vib = container_of(dev, struct isa1000_vib, timed_dev);
 
@@ -71,93 +103,178 @@ static int isa1000_vib_get_time(struct timed_output_dev *dev)
 	return 0;
 }
 
-static enum hrtimer_restart isa1000_vib_timer_func(struct hrtimer *timer)
+static enum hrtimer_restart isa1000_timer_func(struct hrtimer *timer)
 {
 	struct isa1000_vib *vib = container_of(timer, struct isa1000_vib, vib_timer);
 
-	isa1000_vib_set(vib, 0);
+	vib->state = 0;
+	schedule_work(&vib->work);
 
 	return HRTIMER_NORESTART;
 }
 
-static int isa1000_vibrator_probe(struct platform_device *pdev)
+static ssize_t isa1000_amp_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct timed_output_dev *timed_dev = dev_get_drvdata(dev);
+	struct isa1000_vib *vib = container_of(timed_dev, struct isa1000_vib, timed_dev);
+
+	return sprintf(buf, "%d\n", vib->pwm_duty_percent);
+}
+
+static ssize_t isa1000_amp_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct timed_output_dev *timed_dev = dev_get_drvdata(dev);
+	struct isa1000_vib *vib = container_of(timed_dev, struct isa1000_vib, timed_dev);
+
+	int tmp;
+	sscanf(buf, "%d", &tmp);
+	if (tmp > 100)
+		tmp = 100;
+	else if (tmp < 0)
+		tmp = 0;
+
+	vib->pwm_duty_percent = tmp;
+
+	return size;
+}
+
+static ssize_t isa1000_pwm_show(struct device *dev,struct device_attribute *attr, char *buf)
+{
+	struct timed_output_dev *timed_dev = dev_get_drvdata(dev);
+	struct isa1000_vib *vib = container_of(timed_dev, struct isa1000_vib, timed_dev);
+
+	return sprintf(buf, "%u\n", vib->pwm_frequency);
+}
+
+static ssize_t isa1000_pwm_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct timed_output_dev *timed_dev = dev_get_drvdata(dev);
+	struct isa1000_vib *vib = container_of(timed_dev, struct isa1000_vib, timed_dev);
+
+	int tmp;
+	sscanf(buf, "%u", &tmp);
+	if (tmp > 50000)
+		tmp = 50000;
+	else if (tmp < 10000)
+		tmp = 10000;
+
+	vib->pwm_frequency = tmp;
+
+	return size;
+}
+static struct device_attribute isa1000_device_attrs[] = {
+	__ATTR(amp, S_IRUGO | S_IWUSR, isa1000_amp_show, isa1000_amp_store),
+	__ATTR(pwm, S_IRUGO | S_IWUSR, isa1000_pwm_show, isa1000_pwm_store),
+};
+
+static int isa1000_probe(struct platform_device *pdev)
 {
 	struct isa1000_vib *vib;
-	int rc;
+	int i, ret;
 
-	platform_set_drvdata(pdev, &isa1000_vibrator_data);
-	vib = platform_get_drvdata(pdev);
+	platform_set_drvdata(pdev, &vib_dev);
+	vib = (struct isa1000_vib *) platform_get_drvdata(pdev);
 
-	rc = of_get_named_gpio_flags(pdev->dev.of_node, "gpio-isa1000-en", 0, NULL);
-	if (rc < 0)
+	ret = of_get_named_gpio_flags(pdev->dev.of_node, "gpio-isa1000-en", 0, NULL);
+	if (ret< 0)
 	{
 		dev_err(&pdev->dev, "please check enable gpio");
-		return rc;
+		return ret;
 	}
-	vib->gpio_isa1000_en = rc;
+	vib->gpio_isa1000_en = ret;
 
-	rc = of_get_named_gpio_flags(pdev->dev.of_node, "gpio-haptic-en", 0, NULL);
-	if (rc < 0)
+	ret = of_get_named_gpio_flags(pdev->dev.of_node, "gpio-haptic-en", 0, NULL);
+	if (ret < 0)
 	{
 		dev_err(&pdev->dev, "please check enable gpio");
-		return rc;
+		return ret;
 	}
-	vib->gpio_haptic_en = rc;
+	vib->gpio_haptic_en = ret;
 
-	rc = of_property_read_u32(pdev->dev.of_node, "timeout-ms", &vib->timeout);
-	if (rc < 0)
-		dev_err(&pdev->dev,"please check timeout");
+	ret = of_property_read_u32(pdev->dev.of_node, "timeout-ms", &vib->timeout);
+	if (ret < 0)
+		dev_err(&pdev->dev, "please check timeout");
 
-	rc = gpio_is_valid(vib->gpio_isa1000_en);
-	if (rc) {
-		rc = gpio_request(vib->gpio_isa1000_en, "gpio_isa1000_en");
-		if (rc) {
+	ret = of_property_read_u32(pdev->dev.of_node, "pwm-channel", &vib->pwm_channel);
+	if (ret < 0)
+		dev_err(&pdev->dev, "please check pwm output channel");
+
+	dev_info(&pdev->dev, "gpio-isa1000-en: %i, gpio-haptic-en: %i, timeout-ms: %i, pwm-channel: %i", vib->gpio_isa1000_en, vib->gpio_haptic_en, vib->timeout, vib->pwm_channel);
+
+	ret = gpio_is_valid(vib->gpio_isa1000_en);
+	if (ret) {
+		ret = gpio_request(vib->gpio_isa1000_en, "gpio_isa1000_en");
+		if (ret) {
 			dev_err(&pdev->dev, "gpio %d request failed",vib->gpio_isa1000_en);
-			return rc;
+			return ret;
 		}
 	} else {
 		dev_err(&pdev->dev, "invalid gpio %d\n", vib->gpio_isa1000_en);
-		return rc;
+		return ret;
 	}
 
-	rc = gpio_is_valid(vib->gpio_haptic_en);
-	if (rc) {
-		rc = gpio_request(vib->gpio_haptic_en, "gpio_haptic_en");
-		if (rc) {
+	ret = gpio_is_valid(vib->gpio_haptic_en);
+	if (ret) {
+		ret = gpio_request(vib->gpio_haptic_en, "gpio_haptic_en");
+		if (ret) {
 			dev_err(&pdev->dev, "gpio %d request failed\n", vib->gpio_haptic_en);
-			return rc;
+			return ret;
 		}
 	} else {
 		dev_err(&pdev->dev, "invalid gpio %d\n", vib->gpio_haptic_en);
-		return rc;
+		return ret;
 	}
 
-	gpio_direction_output(vib->gpio_isa1000_en, 1);
-	gpio_direction_output(vib->gpio_haptic_en, 0);
+	gpio_direction_output(vib->gpio_isa1000_en, 0);
+	gpio_direction_output(vib->gpio_haptic_en, 1);
+
+	vib->pwm = pwm_request(vib->pwm_channel, "isa1000");
+	if (IS_ERR(vib->pwm)) {
+		dev_err(&pdev->dev,"pwm request failed");
+		return PTR_ERR(vib->pwm);
+	}
 
 	mutex_init(&vib->lock);
 
+	INIT_WORK(&vib->work, isa1000_update);
+
 	hrtimer_init(&vib->vib_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-	vib->vib_timer.function = isa1000_vib_timer_func;
+	vib->vib_timer.function = isa1000_timer_func;
 
 	vib->timed_dev.name = "vibrator";
-	vib->timed_dev.get_time = isa1000_vib_get_time;
-	vib->timed_dev.enable = isa1000_vib_enable;
+	vib->timed_dev.get_time = isa1000_get_time;
+	vib->timed_dev.enable = isa1000_enable;
+	ret = timed_output_dev_register(&vib->timed_dev);
+	if (ret < 0)
+		return ret;
 
-	rc = timed_output_dev_register(&vib->timed_dev);
-	if (rc < 0)
-		return rc;
+	for (i = 0; i < ARRAY_SIZE(isa1000_device_attrs); i++) {
+		ret = device_create_file(vib->timed_dev.dev, &isa1000_device_attrs[i]);
+		if (ret < 0) {
+			pr_err("%s: failed to create sysfs\n", __func__);
+			goto err_sysfs;
+		}
+	}
 
 	return 0;
+
+err_sysfs:
+	for (; i >= 0; i--)
+		device_remove_file(vib->timed_dev.dev, &isa1000_device_attrs[i]);
+
+	timed_output_dev_unregister(&vib->timed_dev);
+	return ret;
 }
 
-static int isa1000_vibrator_remove(struct platform_device *pdev)
+static int isa1000_remove(struct platform_device *pdev)
 {
 	struct isa1000_vib *vib = platform_get_drvdata(pdev);
 
 	timed_output_dev_unregister(&vib->timed_dev);
 
 	hrtimer_cancel(&vib->vib_timer);
+
+	cancel_work_sync(&vib->work);
 
 	mutex_destroy(&vib->lock);
 
@@ -172,26 +289,26 @@ static struct of_device_id vibrator_match_table[] = {
 	{ },
 };
 
-static struct platform_driver isa1000_vibrator_driver = {
-	.probe		= isa1000_vibrator_probe,
-	.remove		= isa1000_vibrator_remove,
+static struct platform_driver isa1000_driver = {
+	.probe		= isa1000_probe,
+	.remove		= isa1000_remove,
 	.driver		= {
 		.name	= "isa1000",
 		.of_match_table = vibrator_match_table,
 	},
 };
 
-static int __init isa1000_vibrator_init(void)
+static int __init isa1000_init(void)
 {
-	return platform_driver_register(&isa1000_vibrator_driver);
+	return platform_driver_register(&isa1000_driver);
 }
-module_init(isa1000_vibrator_init);
+module_init(isa1000_init);
 
-static void __exit isa1000_vibrator_exit(void)
+static void __exit isa1000_exit(void)
 {
-	return platform_driver_unregister(&isa1000_vibrator_driver);
+	return platform_driver_unregister(&isa1000_driver);
 }
-module_exit(isa1000_vibrator_exit);
+module_exit(isa1000_exit);
 
 MODULE_AUTHOR("Balázs Triszka <balika011@protonmail.ch>");
 MODULE_DESCRIPTION("ISA1000 Haptic Motor driver");
